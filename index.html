@@ -149,17 +149,29 @@ function scores(w){
 }
 const avg = a => a.reduce((s,v)=>s+v,0)/a.length;
 
+async function fetchJSON(url){
+  const ctrl = new AbortController(); const timer = setTimeout(()=>ctrl.abort(), 8000);
+  try{ const r = await fetch(url,{signal:ctrl.signal}); if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
+  finally{ clearTimeout(timer); }
+}
+const nums = a => (a||[]).filter(v => typeof v === "number" && !isNaN(v));
 async function loadToday(lat,lng){
   // 모델이 '하루 평균 기온, 하루 강수량 합계' 등 일 단위 날씨로 학습되어, 오늘 시간별 예보를 하루 값으로 묶어 써요
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}`
-    + `&hourly=temperature_2m,precipitation,relative_humidity_2m,wind_speed_10m`
-    + `&wind_speed_unit=ms&timezone=Asia%2FSeoul&forecast_days=1`;
+  const base = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&wind_speed_unit=ms&timezone=Asia%2FSeoul`;
   try{
-    const r = await fetch(url); const j = await r.json(); const h = j.hourly;
-    return {t:avg(h.temperature_2m), p:h.precipitation.reduce((s,v)=>s+v,0),
-            h:avg(h.relative_humidity_2m), w:avg(h.wind_speed_10m)};
-  }catch(e){ return null; }
+    const j = await fetchJSON(base + `&hourly=temperature_2m,precipitation,relative_humidity_2m,wind_speed_10m&forecast_days=1`);
+    const h = j.hourly, t = nums(h.temperature_2m), p = nums(h.precipitation), hu = nums(h.relative_humidity_2m), w = nums(h.wind_speed_10m);
+    if(!t.length || !hu.length || !w.length) throw new Error("빈 응답");
+    return {t:avg(t), p:p.reduce((s,v)=>s+v,0), h:avg(hu), w:avg(w), mode:"day"};
+  }catch(e){
+    console.error("시간별 날씨 실패, 현재 날씨로 재시도:", e);
+    try{
+      const c = (await fetchJSON(base + `&current=temperature_2m,precipitation,relative_humidity_2m,wind_speed_10m`)).current;
+      return {t:c.temperature_2m, p:c.precipitation, h:c.relative_humidity_2m, w:c.wind_speed_10m, mode:"now"};
+    }catch(e2){ console.error("날씨 조회 실패:", e2); return null; }
+  }
 }
+let loading = true;
 
 function showWeather(w,label,note){
   document.getElementById("wlabel").textContent = label;
@@ -200,8 +212,11 @@ function render(){
 function setPreset(key){
   document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed", c.dataset.preset===key));
   if(key==="today"){
-    if(todayW){ currentW=todayW; showWeather(todayW,"오늘 날씨 (하루 기준)","오늘 시간별 예보를 하루 평균, 하루 강수량으로 묶어 계산했어요"); }
-    else { currentW={t:20,p:0,h:60,w:2}; showWeather(currentW,"날씨를 불러오지 못했어요","기본값(20도, 맑음)으로 보여드려요"); }
+    if(todayW){ currentW=todayW;
+      showWeather(todayW, todayW.mode==="day" ? "오늘 날씨 (하루 기준)" : "지금 날씨",
+        todayW.mode==="day" ? "오늘 시간별 예보를 하루 평균, 하루 강수량으로 묶어 계산했어요" : "하루 예보를 받지 못해 지금 날씨로 계산했어요"); }
+    else if(loading){ currentW={t:20,p:0,h:60,w:2}; showWeather(currentW,"오늘 날씨 불러오는 중…","잠시만 기다려 주세요"); }
+    else { currentW={t:20,p:0,h:60,w:2}; showWeather(currentW,"날씨를 불러오지 못했어요","기본값(20도, 맑음)으로 보여드려요. 잠시 뒤 새로고침해 보세요"); }
   }else{
     const p=PRESETS[key]; currentW={t:p.t,p:p.p,h:p.h,w:p.w};
     showWeather(currentW,p.label,"다른 날씨였다면 어떤 음식을 추천할지 보여드려요");
@@ -233,7 +248,8 @@ document.querySelectorAll("[data-fb]").forEach(b=>b.addEventListener("click",()=
 (async()=>{
   setPreset("today");
   todayW = await loadToday(pos.lat,pos.lng);
-  setPreset("today");
+  loading = false;
+  if(document.querySelector('.chip[aria-pressed="true"]').dataset.preset==="today") setPreset("today");
 })();
 </script>
 </body>
