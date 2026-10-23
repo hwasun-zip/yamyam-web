@@ -98,7 +98,7 @@ footer a{color:var(--sub)}
     <div class="label">이런 날 많이 찾는 음식</div>
     <div class="foods" id="foods"></div>
     <div class="why" id="why"></div>
-    <div class="note">5가지 음식 중 순위예요. 이 날씨에 평소보다 얼마나 더 검색되는지를 기준으로 골라요</div>
+    <div class="note">5가지 음식 중 순위예요. 숫자는 이 날씨에 평소보다 얼마나 더 검색되는지를 뜻해요 (1.0↑이면 평소보다 꽤 많이 찾는 날)</div>
   </section>
 
   <section class="card">
@@ -240,9 +240,10 @@ async function areaName(lat,lng){
   }catch(e){ return ""; }
 }
 
-/* 점수(z)를 사람이 읽는 말로 바꿔요. 0 = 평소만큼, +1 = 평소보다 꽤 많이 검색 */
+/* 점수(z)를 방향(화살표)과 크기(숫자)로 보여줘요. 0 = 평소만큼, 1 = 평소보다 꽤 많이 검색 */
 function level(z){
-  return z>=0.5 ? "평소보다 ↑↑" : z>=0.2 ? "평소보다 ↑" : z>-0.2 ? "평소만큼" : z>-0.5 ? "평소보다 ↓" : "평소보다 ↓↓";
+  const v = Math.abs(z).toFixed(1);
+  return v==="0.0" ? "평소만큼" : `평소보다 ${v}${z>0?"↑":"↓"}`;
 }
 function render(){
   const sc = scores(currentW);
