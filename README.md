@@ -2,12 +2,22 @@
 
 **날씨로 오늘 먹을 음식과 가까운 맛집을 추천하는 웹 서비스**
 
-검색 트렌드와 기상 데이터로 학습한 추천 모델을 실제 서비스로 배포하고, **실제 사용자 피드백 22건을 모아 v2로 개선한 뒤, 8건의 추가 피드백으로 다음 문제를 찾은** 프로젝트입니다.
+검색 트렌드와 기상 데이터로 학습한 추천 모델을 실제 서비스로 배포하고, **실제 사용자 피드백 30건으로 두 번 개선(v2, v3)한** 프로젝트입니다.
 
 - 서비스: https://hwasun-zip.github.io/yamyam-web/
 - 이전 버전: [v1](https://hwasun-zip.github.io/yamyam-web/v1.html), [v2](https://hwasun-zip.github.io/yamyam-web/v2.html)
-- 모델 분석: [yamyam](https://github.com/hwasun-zip/yamyam)
-- 서버 코드: [yamyam-server](https://github.com/hwasun-zip/yamyam-server)
+
+<br>
+
+## 프로젝트 구성
+
+분석에서 시작해 서버, 웹 서비스 출시와 개선까지 이어진 하나의 프로젝트입니다.
+
+| 단계 | 기간 | 저장소 | 한 일 |
+|---|---|---|---|
+| 1. 분석 | 2026.07 | [yamyam](https://github.com/hwasun-zip/yamyam) | 날씨와 음식 검색량의 관계를 검증하고 음식별 예측 모델 생성 (그날 1위 음식 적중률 58.8%) |
+| 2. 서버 | 2026.08 | [yamyam-server](https://github.com/hwasun-zip/yamyam-server) | Spring Boot로 날씨 기반 추천 API 구현 |
+| 3. 출시와 개선 | 2026.10 | yamyam-web (현재 저장소) | 웹 서비스 출시, 사용자 피드백 30건으로 v2, v3 개선 |
 
 <br>
 
