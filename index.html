@@ -44,6 +44,9 @@ header p{margin:0;color:var(--sub);font-size:14px}
 .food .meta{flex:1}
 .food .score{font-size:12px;color:var(--sub);text-align:right;white-space:nowrap;width:84px;flex:none}
 .top .name::after{content:" 추천";font-size:12px;color:var(--accent);margin-left:4px}
+.food{cursor:pointer;border-radius:12px;padding:4px 6px;margin:0 -6px;border:2px solid transparent}
+.food[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.pickhint{font-size:12px;color:var(--accent);margin:2px 0 8px;font-weight:700}
 ul.rests{list-style:none;margin:0;padding:0}
 ul.rests li{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
 ul.rests li:first-child{border-top:none}
@@ -52,7 +55,7 @@ ul.rests li:first-child{border-top:none}
 .tag{display:inline-block;font-size:11px;background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:1px 6px;margin-right:6px}
 .right{text-align:right;white-space:nowrap;width:84px;flex:none}
 .dist{font-weight:700}
-a.map{font-size:12px;color:var(--accent);text-decoration:none;margin-left:8px}
+a.map{display:block;font-size:12px;color:var(--accent);text-decoration:none;margin-top:4px}
 .why{font-size:13px;margin:10px 0 0;padding:10px 12px;background:var(--accent-soft);border-radius:10px;line-height:1.5}
 .near{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
 .near a{display:block;text-align:center;text-decoration:none;font-size:14px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:10px 6px}
@@ -96,6 +99,7 @@ footer a{color:var(--sub)}
 
   <section class="card">
     <div class="label">이런 날 많이 찾는 음식</div>
+    <div class="pickhint">👆 음식을 누르면 그 음식 맛집만 보여드려요</div>
     <div class="foods" id="foods"></div>
     <div class="why" id="why"></div>
     <div class="note">5가지 음식 중 순위예요. 숫자는 이 날씨에 평소보다 얼마나 더 검색되는지를 뜻해요 (1.0↑이면 평소보다 꽤 많이 찾는 날)</div>
@@ -232,6 +236,7 @@ function reason(food, w){
   return f.c>0 ? `${EMOJI[food]||''} <b>${food}</b>${eunNeun(food)} ${f.txt}에 검색이 늘어나는 음식이라 1위로 골랐어요` : `${EMOJI[food]||''} <b>${food}</b>${eunNeun(food)} 오늘 같은 날씨에 다른 음식보다 검색이 덜 줄어드는 음식이라 1위로 골랐어요`;
 }
 let outside = false, here = null, area = "";
+let picked = null;   // 사용자가 직접 고른 음식 (없으면 상위 2개)
 async function areaName(lat,lng){
   try{
     const j = await fetchJSON(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=16&accept-language=ko&lat=${lat}&lon=${lng}`);
@@ -249,7 +254,7 @@ function render(){
   const sc = scores(currentW);
   const max = Math.max(...sc.map(s=>Math.abs(s.z)),1);
   document.getElementById("foods").innerHTML = sc.map((s,i)=>`
-    <div class="food ${i<2?'top':''}">
+    <div class="food ${i<2?'top':''}" role="button" tabindex="0" data-food="${s.food}" aria-pressed="${picked===s.food}">
       <div class="emoji" aria-hidden="true">${EMOJI[s.food]||'🍽️'}</div>
       <div class="meta">
         <div class="name">${s.food}</div>
@@ -259,7 +264,7 @@ function render(){
     </div>`).join("");
 
   document.getElementById("why").innerHTML = reason(sc[0].food, currentW);
-  const top = sc.slice(0,2).map(s=>s.food);
+  const top = picked ? [picked] : sc.slice(0,2).map(s=>s.food);
   if(outside){
     const q = area.split(" ").slice(-2).join(" ");
     document.getElementById("rlabel").textContent = `내 주변 ${top.join(", ")} 맛집`;
@@ -272,7 +277,7 @@ function render(){
   const list = RESTS.filter(r=>top.includes(r[1]))
     .map(r=>({name:r[0],food:r[1],d:haversine(pos.lat,pos.lng,r[2],r[3]),addr:r[4]}))
     .sort((a,b)=>a.d-b.d).slice(0,8);
-  document.getElementById("rlabel").textContent = `가까운 ${top.join(", ")} 맛집`;
+  document.getElementById("rlabel").textContent = `가까운 ${top.join(", ")} 맛집` + (picked ? " (다시 누르면 추천 2개로)" : "");
   document.getElementById("rests").innerHTML = list.map(r=>`
     <li>
       <div><div class="rname">${r.name}</div>
@@ -330,6 +335,15 @@ document.querySelectorAll("[data-fb]").forEach(b=>b.addEventListener("click",()=
   if(FEEDBACK_URL){ const a=document.getElementById("fblink"); a.href=FEEDBACK_URL; a.classList.remove("hidden"); a.classList.toggle("strong", !up); }
 }));
 document.getElementById("fblink").addEventListener("click",()=>track("survey-open","설문 열기"));
+function pickFood(el){
+  const f = el.dataset.food;
+  picked = picked===f ? null : f;
+  if(picked) track("food-pick", "음식 골라 보기");
+  render();
+  document.getElementById("rlabel").scrollIntoView({behavior:"smooth", block:"start"});
+}
+document.getElementById("foods").addEventListener("click",e=>{ const el=e.target.closest(".food"); if(el) pickFood(el); });
+document.getElementById("foods").addEventListener("keydown",e=>{ const el=e.target.closest(".food"); if(el && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); pickFood(el); } });
 document.getElementById("rests").addEventListener("click",e=>{
   const a=e.target.closest("a[data-ev]"); if(!a) return;
   const T={"map-open":"지도 열기 (카카오)","map-open-naver":"지도 열기 (네이버)","near-kakao":"내 주변 찾기 (카카오)","near-naver":"내 주변 찾기 (네이버)"};
